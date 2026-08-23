@@ -2,6 +2,7 @@ import os
 import json
 import jwt
 import datetime
+import uuid
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, request, jsonify, redirect, url_for, render_template
 from dotenv import load_dotenv
@@ -152,11 +153,24 @@ def dashboard():
     # Initialize budget file if empty
     if not os.path.exists(user_file):
         with open(user_file, "w") as f:
-            json.dump({"income": 0, "expenses": []}, f)
+            # include last_reset to track monthly cycles (YYYY-MM)
+            json.dump({"income": 0, "expenses": [], "last_reset": datetime.date.today().strftime("%Y-%m")}, f)
 
-    # Handle item updates
+    # Load and possibly perform monthly reset if month changed
+    with open(user_file, "r+") as f:
+        data = json.load(f)
+        current_month = datetime.date.today().strftime("%Y-%m")
+        if data.get("last_reset") != current_month:
+            # reset cycle for new month
+            data["income"] = 0
+            data["expenses"] = []
+            data["last_reset"] = current_month
+            f.seek(0)
+            json.dump(data, f)
+            f.truncate()
+
+    # Handle item updates (create or edit)
     if request.method == "POST":
-        # `item` field removed per request; use `description` as the primary label
         description = request.form.get("description")
         category = request.form.get("category") or "Uncategorized"
         try:
@@ -164,13 +178,29 @@ def dashboard():
         except ValueError:
             amount = 0.0
 
+        edit_id = request.form.get("edit_id")
+
         with open(user_file, "r+") as f:
             data = json.load(f)
-            data["expenses"].append({
-                "description": description,
-                "category": category,
-                "amount": amount,
-            })
+            if edit_id:
+                # find and update existing expense
+                for e in data.get("expenses", []):
+                    if e.get("id") == edit_id:
+                        e["description"] = description
+                        e["category"] = category
+                        e["amount"] = amount
+                        e["date"] = datetime.datetime.utcnow().isoformat()
+                        break
+            else:
+                # append new expense with unique id
+                new_exp = {
+                    "id": uuid.uuid4().hex,
+                    "description": description,
+                    "category": category,
+                    "amount": amount,
+                    "date": datetime.datetime.utcnow().isoformat(),
+                }
+                data.setdefault("expenses", []).append(new_exp)
             f.seek(0)
             json.dump(data, f)
             f.truncate()
@@ -179,8 +209,46 @@ def dashboard():
     with open(user_file, "r") as f:
         budget_data = json.load(f)
 
+    # If the user is requesting to edit an expense, locate it and pass to template
+    edit_id = request.args.get("edit_id")
+    expense_to_edit = None
+    if edit_id:
+        for e in budget_data.get("expenses", []):
+            if e.get("id") == edit_id:
+                expense_to_edit = e
+                break
+
     # Render the dashboard template from the templates/ folder
-    return render_template('dashboard.html', user=user, budget_data=budget_data)
+    return render_template('dashboard.html', user=user, budget_data=budget_data, expense_to_edit=expense_to_edit)
+
+
+@app.route('/expense/delete', methods=['POST'])
+def delete_expense():
+    user = get_user_from_token()
+    if not user:
+        return redirect(url_for('home'))
+    exp_id = request.form.get('id')
+    user_file = os.path.join(DATA_DIR, f"{user}.json")
+    if os.path.exists(user_file):
+        with open(user_file, 'r+') as f:
+            data = json.load(f)
+            data['expenses'] = [e for e in data.get('expenses', []) if e.get('id') != exp_id]
+            f.seek(0)
+            json.dump(data, f)
+            f.truncate()
+    return redirect(url_for('dashboard'))
+
+
+@app.route('/expense/edit', methods=['POST'])
+def edit_expense():
+    # This endpoint simply redirects to dashboard with ?edit_id= to prefill the form
+    user = get_user_from_token()
+    if not user:
+        return redirect(url_for('home'))
+    exp_id = request.form.get('id')
+    if not exp_id:
+        return redirect(url_for('dashboard'))
+    return redirect(url_for('dashboard', edit_id=exp_id))
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

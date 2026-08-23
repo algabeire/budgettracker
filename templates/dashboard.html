@@ -27,33 +27,46 @@
         <!-- Input Form Panel -->
         <div class="md:col-span-1">
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 sticky top-24">
+                {% if expense_to_edit %}
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Edit Transaction</h2>
+                {% else %}
                 <h2 class="text-lg font-bold text-slate-800 mb-4">Add Transaction</h2>
+                {% endif %}
                 <form method="POST" class="space-y-4">
+                    {% if expense_to_edit %}
+                    <input type="hidden" name="edit_id" value="{{ expense_to_edit.id }}">
+                    {% endif %}
                     <div>
                         <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Description</label>
-                        <input type="text" name="description" placeholder="e.g., Grocery - milk, bread" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition">
+                        <input type="text" name="description" placeholder="e.g., Grocery - milk, bread" required value="{% if expense_to_edit %}{{ expense_to_edit.description }}{% endif %}" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Amount ($)</label>
-                        <input type="number" name="amount" placeholder="0.00" step="0.01" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition">
+                        <input type="number" name="amount" placeholder="0.00" step="0.01" required value="{% if expense_to_edit %}{{ "%.2f"|format(expense_to_edit.amount) }}{% endif %}" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Category</label>
                         <select name="category" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm">
-                            <option value="Uncategorized">Uncategorized</option>
-                            <option value="Grocery">Grocery</option>
-                            <option value="Eating out">Eating out</option>
-                            <option value="Health">Health</option>
-                            <option value="Utilities">Utilities</option>
-                            <option value="Telecom">Telecom</option>
-                            <option value="Entertainment">Entertainment</option>
-                            <option value="Shopping">Shopping</option>
-                            <option value="Transport">Transport</option>
+                            {% set sel = expense_to_edit.category if expense_to_edit else None %}
+                            <option value="Uncategorized" {% if sel=='Uncategorized' %}selected{% endif %}>Uncategorized</option>
+                            <option value="Grocery" {% if sel=='Grocery' %}selected{% endif %}>Grocery</option>
+                            <option value="Eating out" {% if sel=='Eating out' %}selected{% endif %}>Eating out</option>
+                            <option value="Health" {% if sel=='Health' %}selected{% endif %}>Health</option>
+                            <option value="Utilities" {% if sel=='Utilities' %}selected{% endif %}>Utilities</option>
+                            <option value="Telecom" {% if sel=='Telecom' %}selected{% endif %}>Telecom</option>
+                            <option value="Entertainment" {% if sel=='Entertainment' %}selected{% endif %}>Entertainment</option>
+                            <option value="Shopping" {% if sel=='Shopping' %}selected{% endif %}>Shopping</option>
+                            <option value="Transport" {% if sel=='Transport' %}selected{% endif %}>Transport</option>
                         </select>
                     </div>
-                    <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-xl transition text-sm shadow-sm shadow-emerald-600/10">
-                        Record Expense
-                    </button>
+                    <div class="flex space-x-2">
+                        <button type="submit" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-xl transition text-sm shadow-sm shadow-emerald-600/10">
+                            {% if expense_to_edit %}Save Changes{% else %}Record Expense{% endif %}
+                        </button>
+                        {% if expense_to_edit %}
+                        <a href="/dashboard" class="flex-1 text-center bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2.5 rounded-xl transition text-sm">Cancel</a>
+                        {% endif %}
+                    </div>
                 </form>
             </div>
         </div>
@@ -78,14 +91,22 @@
                         <div class="flex items-center space-x-3">
                             <div class="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-500 text-sm">🛍️</div>
                             <div>
-                                <div class="font-medium text-slate-700 text-sm">{{ exp.item }}</div>
-                                {% if exp.description %}
-                                <div class="text-xs text-slate-400">{{ exp.description }}</div>
-                                {% endif %}
-                                <div class="text-xs text-slate-400 mt-1">Category: {{ exp.get('category', 'Uncategorized') }}</div>
+                                <div class="font-medium text-slate-700 text-sm">{{ exp.description }}</div>
+                                <div class="text-xs text-slate-400">Category: {{ exp.get('category', 'Uncategorized') }}</div>
+                                <div class="text-xs text-slate-400">{{ exp.date }}</div>
                             </div>
                         </div>
-                        <span class="font-semibold text-rose-600 text-sm">-${{ "%.2f"|format(exp.amount) }}</span>
+                        <div class="flex items-center space-x-3">
+                            <span class="font-semibold text-rose-600 text-sm">-${{ "%.2f"|format(exp.amount) }}</span>
+                            <form method="POST" action="/expense/edit" style="display:inline">
+                                <input type="hidden" name="id" value="{{ exp.id }}">
+                                <button type="submit" class="text-xs text-sky-600 hover:underline">Edit</button>
+                            </form>
+                            <form method="POST" action="/expense/delete" style="display:inline" onsubmit="return confirm('Delete this transaction?')">
+                                <input type="hidden" name="id" value="{{ exp.id }}">
+                                <button type="submit" class="text-xs text-rose-600 hover:underline">Delete</button>
+                            </form>
+                        </div>
                     </div>
                     {% endfor %}
                 </div>
