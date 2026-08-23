@@ -12,10 +12,9 @@ RUN apt-get update \
 
 COPY requirements.txt /app/requirements.txt
 
-# Install Python dependencies
-RUN pip install --upgrade pip \
-    && pip install --no-cache-dir -r /app/requirements.txt \
-    && pip install --no-cache-dir gunicorn
+# Install Python dependencies and ensure setuptools (pkg_resources) is available
+RUN pip install --upgrade pip setuptools \
+    && pip install --no-cache-dir -r /app/requirements.txt
 
 # Copy application source
 COPY . /app
