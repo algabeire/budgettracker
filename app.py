@@ -1,6 +1,7 @@
 import os
 import json
 import jwt
+from jwt.jwk import OctetJWK
 import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, request, jsonify, redirect, url_for, render_template
