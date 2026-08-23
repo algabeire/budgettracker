@@ -1,7 +1,6 @@
 import os
 import json
 import jwt
-from jwt.jwk import OctetJWK
 import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, request, jsonify, redirect, url_for, render_template
@@ -31,8 +30,17 @@ def create_token(user_email):
     }
     if not JWT_SECRET:
         raise RuntimeError("JWT_SECRET_KEY not set in environment")
-    key = OctetJWK(JWT_SECRET.encode())
-    return jwt.JWT().encode(payload, key, alg="HS256")
+    # Support both PyJWT and python-jwt at runtime so deploys work across envs.
+    # PyJWT exposes a module-level `encode` function, while python-jwt exposes
+    # a `JWT` class and requires `OctetJWK` for symmetric keys.
+    if hasattr(jwt, "encode"):
+        # PyJWT
+        return jwt.encode(payload, JWT_SECRET, algorithm="HS256")
+    else:
+        # python-jwt
+        from jwt.jwk import OctetJWK
+        key = OctetJWK(JWT_SECRET.encode())
+        return jwt.JWT().encode(payload, key, alg="HS256")
 
 def get_user_from_token():
     """Decodes the JWT from cookies to identify the user without a DB lookup."""
@@ -42,9 +50,16 @@ def get_user_from_token():
     try:
         if not JWT_SECRET:
             return None
-        key = OctetJWK(JWT_SECRET.encode())
-        data = jwt.JWT().decode(token, key, do_verify=True, algorithms={"HS256"})
-        return data.get("identity")
+        if hasattr(jwt, "decode") and hasattr(jwt, "encode"):
+            # PyJWT
+            data = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            return data.get("identity")
+        else:
+            # python-jwt
+            from jwt.jwk import OctetJWK
+            key = OctetJWK(JWT_SECRET.encode())
+            data = jwt.JWT().decode(token, key, do_verify=True, algorithms={"HS256"})
+            return data.get("identity")
     except Exception:
         return None
 
