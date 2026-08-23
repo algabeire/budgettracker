@@ -2,3 +2,4 @@ Flask==3.0.3
 python-jwt
 python-dotenv
 cryptography
+gunicorn==20.1.0
