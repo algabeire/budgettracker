@@ -1,0 +1,12 @@
+/* This file previously contained HTML by mistake.
+   Keep minimal CSS here for any future static overrides. */
+
+/* Example reset */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+}

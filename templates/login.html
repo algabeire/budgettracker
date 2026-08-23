@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="bg-slate-50 min-h-screen p-8">
+    <div class="max-w-md mx-auto bg-white p-8 rounded-2xl shadow-sm">
+        <h1 class="text-xl font-bold mb-4">Log in</h1>
+        {% if error %}
+        <div class="text-red-600 mb-2">{{ error }}</div>
+        {% endif %}
+        <form method="POST" class="space-y-4">
+            <input type="text" name="username" placeholder="Username" required class="w-full px-4 py-2 border rounded-xl">
+            <input type="password" name="password" placeholder="Password" required class="w-full px-4 py-2 border rounded-xl">
+            <button class="w-full bg-slate-900 text-white py-2 rounded-xl">Log in</button>
+        </form>
+        <div class="mt-4 text-sm">No account? <a href="/register" class="text-emerald-600 font-semibold">Register</a></div>
+    </div>
+</body>
+</html>
